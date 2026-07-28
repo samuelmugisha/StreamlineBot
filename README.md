@@ -16,7 +16,7 @@ A Retrieval-Augmented Generation (RAG) chatbot connects a generative AI to your 
 - Onboarding Guidance: Delivers personalized onboarding walkthroughs, tutorials, and step-by-step guides based on the specific software tier or module the customer purchased.
 
 **Integration & Enterprise Features**
-- Software Tooling Integrations: Integrates natively with adminIE CRM and helpdesk ticketing systems to look up past ticket history and client account statuses.
+- Software Tooling Integrations: Integrates natively with Stre@mline CRM and helpdesk ticketing systems to look up past ticket history and client account statuses.
 - Sentiment Analysis & Analytics: Tracks user frustration levels in real-time, escalating negative sentiment to human managers and providing analytics on which help articles are most (or least) helpful.
 - Role-Based Access Control (RBAC): Ensures the chatbot only retrieves information the customer is authorized to see (e.g., hiding enterprise-level features from basic-tier users).
 - Multi-Channel Deployment: Embeds seamlessly across all user touchpoints, including your web app, mobile app, Slack, Microsoft Teams, and email.
