@@ -1,0 +1,42 @@
+# Environment
+.env
+.env.local
+.env.streamline
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project-specific
+test.md
+*.log
+
+# Ingestion runtime state — local only
+backend/ingestion/gdrive_checkpoint.json
+backend/ingestion/gdrive_sync_state.json
+backend/ingestion/gdoc_sync_state.json
+backend/ingestion/gdoc_image_manifest.json
+
+# Credentials — never commit
+backend/credentials/

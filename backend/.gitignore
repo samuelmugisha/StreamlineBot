@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# OCR checkpoint / image manifest — large generated files, not source code
+ingestion/ocr_checkpoint.json
+ingestion/gdoc_image_manifest.json
+
+# Data files are tracked separately — exclude processed outputs
+data/**/*.json

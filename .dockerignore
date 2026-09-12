@@ -1,0 +1,30 @@
+# Never bake secrets into the image
+.env
+.env.*
+backend/credentials/
+
+# Python caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Frontend (built separately)
+frontend/node_modules/
+frontend/dist/
+
+# Large generated files — mounted or fetched at runtime
+backend/ingestion/ocr_checkpoint.json
+
+# Git
+.git/
+.gitignore
+
+# Docs / planning
+*.md
+plan.md
+
+# IDE
+.vscode/
+.idea/
