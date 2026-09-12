@@ -58,7 +58,7 @@ _RATE_LIMIT = os.environ.get("RATE_LIMIT", "20/minute")
 limiter = Limiter(key_func=get_remote_address, default_limits=[_RATE_LIMIT])
 
 # /chat is the most expensive endpoint — retrieval + generation + sentiment
-# scoring means multiple OpenAI calls per request — so it gets its own,
+# scoring means multiple Gemini calls per request — so it gets its own,
 # stricter per-IP limit instead of sharing _RATE_LIMIT with /escalate and /feedback.
 _CHAT_RATE_LIMIT = os.environ.get("CHAT_RATE_LIMIT", "8/minute")
 
