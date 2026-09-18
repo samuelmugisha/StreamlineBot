@@ -24,8 +24,7 @@ def escalate(session_id: str, reason: str, extra_context: str | None = None) -> 
     save_escalation(session_id, reason, messages)
 
     transcript = "\n\n".join(
-        f"{'User' if m['type'] == 'human' else 'AdminIE'}: {m['content']}"
-        for m in messages
+        f"{'User' if m['type'] == 'human' else 'AdminIE'}: {m['content']}" for m in messages
     )
     label = _REASON_LABELS.get(reason, reason)
     body = f"Session ID: {session_id}\nReason: {label}\n"

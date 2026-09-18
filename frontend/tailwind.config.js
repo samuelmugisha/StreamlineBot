@@ -6,8 +6,8 @@ export default {
       colors: {
         brand: {
           primary: 'var(--brand-primary)',
-          light:   'var(--brand-light)',
-          accent:  'var(--brand-accent)',
+          light: 'var(--brand-light)',
+          accent: 'var(--brand-accent)',
         },
       },
     },

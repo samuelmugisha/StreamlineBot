@@ -5,11 +5,11 @@ import re
 
 from langchain_core.messages import AIMessage, BaseMessage
 
-from .rag import run_rag
+from .escalation import NO_ANSWER_PHRASE, escalate
 from .memory import load_window, save_exchange
+from .rag import run_rag
 from .schemas import ChatRequest, ChatResponse
 from .sentiment import analyze_message
-from .escalation import escalate, NO_ANSWER_PHRASE
 
 _GREETING_RE = re.compile(
     r"^\s*(hi+|hello+|hey+|good\s+(morning|afternoon|evening|day)|howdy|greetings?|what'?s?\s*up)\W*\s*$",
@@ -42,8 +42,8 @@ def handle_chat(request: ChatRequest) -> ChatResponse:
     if _GREETING_RE.match(request.message):
         answer, tutorial = _GREETING_REPLY, None
     else:
-        result   = run_rag(question=request.message, history=history)
-        answer   = result["answer"]
+        result = run_rag(question=request.message, history=history)
+        answer = result["answer"]
         tutorial = result["tutorial"]
 
     # Don't link to a tutorial page for a question the bot couldn't answer —

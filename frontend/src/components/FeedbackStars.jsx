@@ -51,7 +51,7 @@ export default function FeedbackStars({ sessionId, apiUrl, apiKey, question, ans
       {stage !== 'comment' && (
         <div className="flex items-center gap-0.5">
           <span className="text-[10px] text-slate-400 mr-1">Was this helpful?</span>
-          {[1, 2, 3, 4, 5].map(n => (
+          {[1, 2, 3, 4, 5].map((n) => (
             <button
               key={n}
               type="button"
@@ -77,7 +77,7 @@ export default function FeedbackStars({ sessionId, apiUrl, apiKey, question, ans
             <input
               type="text"
               value={comment}
-              onChange={e => setComment(e.target.value)}
+              onChange={(e) => setComment(e.target.value)}
               placeholder="Tell us more..."
               className="flex-1 text-xs bg-slate-100 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-brand-primary"
             />

@@ -1,0 +1,20 @@
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+exclude = ["frontend", ".venv", "venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["backend"]
+
+[tool.pytest.ini_options]
+testpaths = ["Tests"]
+pythonpath = ["."]
+addopts = "-ra --cov=backend --cov-report=term-missing --cov-report=xml --cov-fail-under=60"
+
+[tool.coverage.run]
+source = ["backend"]
+omit = ["backend/ingestion/*"]

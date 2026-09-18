@@ -5,9 +5,9 @@ escalation flow can be tested before AdminIE's SMTP credentials are available.
 EMAIL_BACKEND=smtp sends the email via the configured SMTP server.
 """
 
+import logging
 import os
 import smtplib
-import logging
 from email.mime.text import MIMEText
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,9 @@ def send_email(subject: str, body: str) -> None:
     if backend != "smtp":
         logger.info(
             "[escalation email — console mode]\nTo: %s\nSubject: %s\n\n%s",
-            recipient or "(ESCALATION_EMAIL_TO not set)", subject, body,
+            recipient or "(ESCALATION_EMAIL_TO not set)",
+            subject,
+            body,
         )
         return
 

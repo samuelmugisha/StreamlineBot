@@ -12,22 +12,23 @@ Usage:
     python -m backend.ingestion.ingest --clear       # wipe Supabase first
 """
 
+import json
 import os
 import re
-import json
 import time
 from pathlib import Path
 
 import fitz  # PyMuPDF
 import google.generativeai as genai
 from dotenv import load_dotenv
-from google.api_core.exceptions import ResourceExhausted, DeadlineExceeded, ServiceUnavailable
-from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
-from langchain_core.documents import Document
-from backend.app.gemini_embeddings import GeminiEmbeddings
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from google.api_core.exceptions import DeadlineExceeded, ResourceExhausted, ServiceUnavailable
 from langchain_community.vectorstores import SupabaseVectorStore
+from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from supabase import create_client
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+
+from backend.app.gemini_embeddings import GeminiEmbeddings
 
 load_dotenv()
 
@@ -58,20 +59,19 @@ def _page_to_bytes(page: fitz.Page, dpi: int = DPI) -> bytes:
 )
 def _ocr_page(image_bytes: bytes) -> str:
     model = genai.GenerativeModel(OCR_MODEL)
-    response = model.generate_content([
-        "Extract all text from this document page exactly as it appears. "
-        "Preserve headings, bullet points, tables, and numbered lists. "
-        "Do not summarise — output the raw text only.",
-        {"mime_type": "image/png", "data": image_bytes},
-    ])
+    response = model.generate_content(
+        [
+            "Extract all text from this document page exactly as it appears. "
+            "Preserve headings, bullet points, tables, and numbered lists. "
+            "Do not summarise — output the raw text only.",
+            {"mime_type": "image/png", "data": image_bytes},
+        ]
+    )
     return response.text or ""
 
 
 def _save_checkpoint(docs: list[Document]) -> None:
-    data = [
-        {"page_content": d.page_content, "metadata": d.metadata}
-        for d in docs
-    ]
+    data = [{"page_content": d.page_content, "metadata": d.metadata} for d in docs]
     CHECKPOINT_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"Checkpoint saved: {CHECKPOINT_FILE}")
 
@@ -101,10 +101,12 @@ def run_ocr() -> list[Document]:
             image_bytes = _page_to_bytes(pdf_doc[page_num])
             text = _ocr_page(image_bytes)
             if text.strip():
-                docs.append(Document(
-                    page_content=text,
-                    metadata={"source": source, "module": module, "page": page_num + 1},
-                ))
+                docs.append(
+                    Document(
+                        page_content=text,
+                        metadata={"source": source, "module": module, "page": page_num + 1},
+                    )
+                )
             time.sleep(1.5)
 
         pdf_doc.close()

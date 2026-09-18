@@ -1,0 +1,4 @@
+# This deployment serves the embeddable chat widget bundle and its dev
+# preview page — not public content meant to be indexed.
+User-agent: *
+Disallow: /

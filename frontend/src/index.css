@@ -3,12 +3,19 @@
 @tailwind utilities;
 
 :root {
-  --brand-primary: #1B3A6B;
-  --brand-light:   #2E5FA3;
-  --brand-accent:  #F97316;
+  --brand-primary: #1b3a6b;
+  --brand-light: #2e5fa3;
+  --brand-accent: #f97316;
 }
 
 /* Smooth scrollbar for chat messages */
-.chat-scroll::-webkit-scrollbar        { width: 4px; }
-.chat-scroll::-webkit-scrollbar-track  { background: transparent; }
-.chat-scroll::-webkit-scrollbar-thumb  { background: #cbd5e1; border-radius: 4px; }
+.chat-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.chat-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.chat-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}

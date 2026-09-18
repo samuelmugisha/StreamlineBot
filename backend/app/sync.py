@@ -56,6 +56,7 @@ def _check_and_sync() -> None:
     gdrive_folder = os.environ.get("GDRIVE_FOLDER_ID")
     if gdrive_folder:
         from backend.ingestion.gdrive_ingest import sync_gdrive
+
         sync_gdrive()
 
     if not doc_id and not gdrive_folder:

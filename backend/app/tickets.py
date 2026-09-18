@@ -1,8 +1,9 @@
 """Ticket submission — stores in Supabase; add Samuel's webhook here when ready."""
 
-import os
 import logging
-from supabase import create_client, Client
+import os
+
+from supabase import Client, create_client
 
 logger = logging.getLogger(__name__)
 
@@ -31,16 +32,18 @@ def submit_ticket(
     sb = _get_supabase()
     result = (
         sb.table("tickets")
-        .insert({
-            "name": name,
-            "email": email,
-            "module": module,
-            "subject": subject,
-            "description": description,
-            "priority": priority,
-            "session_id": session_id,
-            "status": "open",
-        })
+        .insert(
+            {
+                "name": name,
+                "email": email,
+                "module": module,
+                "subject": subject,
+                "description": description,
+                "priority": priority,
+                "session_id": session_id,
+                "status": "open",
+            }
+        )
         .execute()
     )
     ticket_id = str(result.data[0]["id"])

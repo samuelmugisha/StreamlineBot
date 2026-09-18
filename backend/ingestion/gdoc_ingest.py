@@ -13,25 +13,27 @@ Called automatically by the sync loop in backend/app/sync.py whenever
 the doc's modifiedTime changes.
 """
 
-import os
-import re
+import hashlib
 import io
 import json
-import socket
-import hashlib
 import logging
+import os
+import re
+import socket
+from pathlib import Path
 
 import requests
-from PIL import Image
 from dotenv import load_dotenv
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-from langchain_core.documents import Document
-from backend.app.gemini_embeddings import GeminiEmbeddings
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import SupabaseVectorStore
+from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from PIL import Image
 from supabase import create_client
-from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+
+from backend.app.gemini_embeddings import GeminiEmbeddings
 
 load_dotenv()
 
@@ -48,10 +50,10 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive.readonly",
 ]
 
-CHUNK_SIZE         = 1000
-CHUNK_OVERLAP      = 150
-SOURCE_TAG         = "google_doc"
-SCREENSHOT_BUCKET  = "gdoc-screenshots"
+CHUNK_SIZE = 1000
+CHUNK_OVERLAP = 150
+SOURCE_TAG = "google_doc"
+SCREENSHOT_BUCKET = "gdoc-screenshots"
 
 # "Questions" is a bare table-of-contents tab — every question already
 # answered in its own module tab, repeated here with no answer text and no
@@ -90,10 +92,8 @@ def _build_services():
         creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
     else:
         creds_path = Path(os.environ["GOOGLE_CREDENTIALS_FILE"])
-        creds = service_account.Credentials.from_service_account_file(
-            str(creds_path), scopes=SCOPES
-        )
-    docs_svc  = build("docs",  "v1", credentials=creds, cache_discovery=False)
+        creds = service_account.Credentials.from_service_account_file(str(creds_path), scopes=SCOPES)
+    docs_svc = build("docs", "v1", credentials=creds, cache_discovery=False)
     drive_svc = build("drive", "v3", credentials=creds, cache_discovery=False)
     return docs_svc, drive_svc
 
@@ -136,9 +136,7 @@ def _download_inline_image_bytes(inline_object: dict) -> tuple[bytes, str] | Non
     if not inline_object:
         return None
     image_props = (
-        inline_object.get("inlineObjectProperties", {})
-        .get("embeddedObject", {})
-        .get("imageProperties", {})
+        inline_object.get("inlineObjectProperties", {}).get("embeddedObject", {}).get("imageProperties", {})
     )
     content_uri = image_props.get("contentUri")
     if not content_uri:
@@ -162,7 +160,9 @@ def _stitch_images(image_data: list[tuple[bytes, str]]) -> tuple[bytes, str]:
             im = im.resize((width, round(im.height * width / im.width)))
         resized.append(im)
 
-    canvas = Image.new("RGB", (width, sum(im.height for im in resized) + gap * (len(resized) - 1)), (225, 225, 225))
+    canvas = Image.new(
+        "RGB", (width, sum(im.height for im in resized) + gap * (len(resized) - 1)), (225, 225, 225)
+    )
     y = 0
     for im in resized:
         canvas.paste(im, (0, y))
@@ -192,7 +192,8 @@ def _finalize_qa_image(
         return url
 
     supabase.storage.from_(SCREENSHOT_BUCKET).upload(
-        path, content,
+        path,
+        content,
         file_options={"content-type": content_type, "upsert": "true"},
     )
     manifest[path] = digest
@@ -229,7 +230,8 @@ def _parse_tab(tab: dict, doc_id: str, supabase, manifest: dict) -> list[Documen
         except Exception:
             logger.exception(
                 "Failed to finalize image(s) for tab %r question %d — keeping the text, dropping the image.",
-                title, q_idx,
+                title,
+                q_idx,
             )
             image_url = None
         q_idx += 1
@@ -244,8 +246,7 @@ def _parse_tab(tab: dict, doc_id: str, supabase, manifest: dict) -> list[Documen
             continue
         elements = para.get("elements", [])
         image_id = next(
-            (el["inlineObjectElement"]["inlineObjectId"]
-             for el in elements if "inlineObjectElement" in el),
+            (el["inlineObjectElement"]["inlineObjectId"] for el in elements if "inlineObjectElement" in el),
             None,
         )
         if image_id:
@@ -353,9 +354,9 @@ def ingest_gdoc() -> int:
     # Snapshot IDs of the existing chunks BEFORE embedding new ones.
     # We delete by ID after a successful embed so that if OpenAI fails,
     # the old chunks survive intact instead of leaving the KB empty.
-    old_resp = supabase.table("documents").select("id").filter(
-        "metadata->>source", "eq", SOURCE_TAG
-    ).execute()
+    old_resp = (
+        supabase.table("documents").select("id").filter("metadata->>source", "eq", SOURCE_TAG).execute()
+    )
     old_ids = [row["id"] for row in (old_resp.data or [])]
 
     SupabaseVectorStore.from_documents(
@@ -372,7 +373,7 @@ def ingest_gdoc() -> int:
         logger.info("Removing %d old Google Doc chunks...", len(old_ids))
         batch = 100
         for i in range(0, len(old_ids), batch):
-            supabase.table("documents").delete().in_("id", old_ids[i:i + batch]).execute()
+            supabase.table("documents").delete().in_("id", old_ids[i : i + batch]).execute()
 
     logger.info("Google Doc sync complete — %d chunks stored.", len(chunks))
     return len(chunks)

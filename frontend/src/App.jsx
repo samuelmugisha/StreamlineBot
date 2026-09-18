@@ -12,8 +12,8 @@ const COMPANY_NAME = import.meta.env.VITE_COMPANY_NAME || 'AdminIE'
 // Falls back to build-time env vars for standalone / dev use.
 const getConfig = () => ({
   sessionId: window.ADMINIE_SESSION_ID || getStoredSessionId(),
-  apiUrl:    window.ADMINIE_API_URL    || import.meta.env.VITE_API_URL || 'http://localhost:8000',
-  apiKey:    window.ADMINIE_API_KEY    || import.meta.env.VITE_API_KEY || '',
+  apiUrl: window.ADMINIE_API_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000',
+  apiKey: window.ADMINIE_API_KEY || import.meta.env.VITE_API_KEY || '',
 })
 
 function getStoredSessionId() {
@@ -32,9 +32,9 @@ function resetSession() {
 }
 
 export default function App() {
-  const [config]      = useState(getConfig)
+  const [config] = useState(getConfig)
   const [sessionId, setSessionId] = useState(config.sessionId)
-  const [open, setOpen]           = useState(false)
+  const [open, setOpen] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
 
   useEffect(() => {
@@ -44,7 +44,7 @@ export default function App() {
   }, [])
 
   function toggleChat() {
-    setOpen(prev => !prev)
+    setOpen((prev) => !prev)
     setShowPreview(false)
   }
 
@@ -69,7 +69,6 @@ export default function App() {
 
       {/* Widget — fixed bottom-right */}
       <div className="fixed bottom-6 right-6 flex flex-col items-end gap-3 z-50">
-
         {/* Chat window wrapped in its own ErrorBoundary */}
         {open && (
           <div style={{ animation: 'fadeInUp 0.22s ease-out' }}>
@@ -87,8 +86,10 @@ export default function App() {
 
         {/* Preview bubble */}
         {!open && showPreview && (
-          <div style={{ animation: 'fadeInUp 0.22s ease-out' }}
-            className="flex items-start gap-3 bg-white rounded-2xl shadow-xl border border-slate-100 p-3 max-w-[260px]">
+          <div
+            style={{ animation: 'fadeInUp 0.22s ease-out' }}
+            className="flex items-start gap-3 bg-white rounded-2xl shadow-xl border border-slate-100 p-3 max-w-[260px]"
+          >
             <BotAvatar size={40} showDot />
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2">
@@ -96,18 +97,30 @@ export default function App() {
                   <p className="text-xs font-bold text-slate-800 leading-tight">{COMPANY_NAME}</p>
                   <p className="text-[10px] text-slate-400">AI Support Assistant</p>
                 </div>
-                <button onClick={() => { setShowPreview(false); localStorage.setItem('adminiebot_preview_dismissed', '1') }}
-                  className="text-slate-300 hover:text-slate-500 shrink-0">
+                <button
+                  onClick={() => {
+                    setShowPreview(false)
+                    localStorage.setItem('adminiebot_preview_dismissed', '1')
+                  }}
+                  className="text-slate-300 hover:text-slate-500 shrink-0"
+                >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </button>
               </div>
               <p className="text-xs text-slate-600 mt-1 leading-snug">
                 👋 Hi! I'm {COMPANY_NAME}. Ask me anything about {COMPANY_NAME} modules.
               </p>
-              <button onClick={toggleChat}
-                className="mt-2 text-[11px] font-semibold text-white bg-brand-primary hover:bg-brand-light px-3 py-1 rounded-full transition-colors">
+              <button
+                onClick={toggleChat}
+                className="mt-2 text-[11px] font-semibold text-white bg-brand-primary hover:bg-brand-light px-3 py-1 rounded-full transition-colors"
+              >
                 Chat now
               </button>
             </div>
@@ -118,11 +131,12 @@ export default function App() {
         <button
           onClick={toggleChat}
           aria-label="Chat with AdminIE"
-          className="relative focus:outline-none hover:scale-105 transition-transform duration-200">
+          className="relative focus:outline-none hover:scale-105 transition-transform duration-200"
+        >
           {open ? (
             <div className="w-14 h-14 rounded-full bg-brand-primary shadow-lg flex items-center justify-center">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </div>
           ) : (

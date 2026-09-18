@@ -8,10 +8,10 @@ import os
 from functools import lru_cache
 
 import httpx
-from supabase import create_client, Client
-from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
-from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
 from dotenv import load_dotenv
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
+from supabase import Client, create_client
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 load_dotenv()
 
@@ -58,14 +58,18 @@ def save_exchange(session_id: str, user_message: str, ai_message: str, sentiment
     human_row = {"session_id": session_id, "message": {"type": "human", "content": user_message}}
     if sentiment is not None:
         human_row["sentiment"] = sentiment
-    _client().table("chat_history").insert([
-        human_row,
-        {"session_id": session_id, "message": {"type": "ai", "content": ai_message}},
-    ]).execute()
+    _client().table("chat_history").insert(
+        [
+            human_row,
+            {"session_id": session_id, "message": {"type": "ai", "content": ai_message}},
+        ]
+    ).execute()
 
 
 @retry(**_SUPABASE_RETRY)
-def save_feedback(session_id: str, question: str, answer: str, rating: int, comment: str | None = None) -> None:
+def save_feedback(
+    session_id: str, question: str, answer: str, rating: int, comment: str | None = None
+) -> None:
     row = {"session_id": session_id, "question": question, "answer": answer, "rating": rating}
     if comment:
         row["comment"] = comment
@@ -74,11 +78,13 @@ def save_feedback(session_id: str, question: str, answer: str, rating: int, comm
 
 @retry(**_SUPABASE_RETRY)
 def save_escalation(session_id: str, reason: str, transcript: list[dict]) -> None:
-    _client().table("escalations").insert({
-        "session_id": session_id,
-        "reason": reason,
-        "transcript": transcript,
-    }).execute()
+    _client().table("escalations").insert(
+        {
+            "session_id": session_id,
+            "reason": reason,
+            "transcript": transcript,
+        }
+    ).execute()
 
 
 @retry(**_SUPABASE_RETRY)

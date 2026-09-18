@@ -7,30 +7,29 @@ Clients are initialised lazily on first use so the module can be imported
 safely even if environment variables are not yet loaded.
 """
 
-import os
 import logging
-from typing import TypedDict, Annotated
 import operator
+import os
 from functools import lru_cache
-
-logger = logging.getLogger(__name__)
+from typing import Annotated, Any, TypedDict
 
 from dotenv import load_dotenv
+from google.api_core.exceptions import ResourceExhausted
 from langchain_core.messages import BaseMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
-from .gemini_embeddings import GeminiEmbeddings
-from langgraph.graph import StateGraph, END
-from google.api_core.exceptions import ResourceExhausted
+from langgraph.graph import END, StateGraph
 from supabase import create_client
-from typing import Any, Dict, List, Optional
 
+from .gemini_embeddings import GeminiEmbeddings
 from .tutorials import tutorial_image_url
 
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
 # ─── Lazy singletons ──────────────────────────────────────────────────────────
+
 
 @lru_cache(maxsize=1)
 def _embeddings():
@@ -59,6 +58,7 @@ def _llm():
 
 # ─── System prompt ────────────────────────────────────────────────────────────
 
+
 def _build_system_prompt() -> str:
     company = os.environ.get("COMPANY_NAME", "AdminIE")
     support_email = os.environ.get("ESCALATION_EMAIL_TO", "success@adminie.com")
@@ -78,42 +78,58 @@ Context:
 {{context}}
 """
 
+
 _SYSTEM = _build_system_prompt()
 
-_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", _SYSTEM),
-    ("placeholder", "{history}"),
-    ("human", "{question}"),
-])
+_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        ("system", _SYSTEM),
+        ("placeholder", "{history}"),
+        ("human", "{question}"),
+    ]
+)
 
 # ─── LangGraph state ──────────────────────────────────────────────────────────
 
+
 class AgentState(TypedDict):
-    question:  str
-    history:   Annotated[list[BaseMessage], operator.add]
-    context:   str
-    answer:    str
-    tutorial:  Optional[Dict[str, Any]]
+    question: str
+    history: Annotated[list[BaseMessage], operator.add]
+    context: str
+    answer: str
+    tutorial: dict[str, Any] | None
 
 
 # ─── Graph nodes ──────────────────────────────────────────────────────────────
+
 
 def retrieve(state: AgentState) -> dict:
     try:
         vec = _embeddings().embed_query(state["question"])
         threshold = float(os.environ.get("RAG_MATCH_THRESHOLD", "0.1"))
-        rows = _supabase().rpc("match_documents", {
-            "query_embedding": vec,
-            "match_count": 8,
-            "match_threshold": threshold,
-        }).execute().data or []
-        logger.info("RAG retrieved %d docs (threshold=%.2f) for: %s",
-                    len(rows), threshold, state["question"][:60])
+        rows = (
+            _supabase()
+            .rpc(
+                "match_documents",
+                {
+                    "query_embedding": vec,
+                    "match_count": 8,
+                    "match_threshold": threshold,
+                },
+            )
+            .execute()
+            .data
+            or []
+        )
+        logger.info(
+            "RAG retrieved %d docs (threshold=%.2f) for: %s", len(rows), threshold, state["question"][:60]
+        )
     except Exception as e:
         logger.warning("Retrieval failed: %s — returning empty context.", e)
         return {"context": "", "tutorial": None}
 
     from langchain_core.documents import Document
+
     docs = [Document(page_content=r["content"], metadata=r.get("metadata", {})) for r in rows]
     context_parts = [doc.page_content for doc in docs]
 
@@ -144,11 +160,17 @@ def retrieve(state: AgentState) -> dict:
 
 def generate(state: AgentState) -> dict:
     try:
-        answer = (_PROMPT | _llm()).invoke({
-            "context": state["context"],
-            "history": state["history"],
-            "question": state["question"],
-        }).content
+        answer = (
+            (_PROMPT | _llm())
+            .invoke(
+                {
+                    "context": state["context"],
+                    "history": state["history"],
+                    "question": state["question"],
+                }
+            )
+            .content
+        )
     except ResourceExhausted:
         logger.warning("LLM rate limit hit — returning friendly message.")
         answer = (
@@ -159,6 +181,7 @@ def generate(state: AgentState) -> dict:
 
 
 # ─── Build graph ──────────────────────────────────────────────────────────────
+
 
 @lru_cache(maxsize=1)
 def _graph():
@@ -173,13 +196,16 @@ def _graph():
 
 # ─── Public interface ─────────────────────────────────────────────────────────
 
+
 def run_rag(question: str, history: list[BaseMessage] | None = None) -> dict:
     """Run the RAG graph and return {"answer": str, "tutorial": dict | None}."""
-    result = _graph().invoke({
-        "question": question,
-        "history":  history or [],
-        "context":  "",
-        "answer":   "",
-        "tutorial": None,
-    })
+    result = _graph().invoke(
+        {
+            "question": question,
+            "history": history or [],
+            "context": "",
+            "answer": "",
+            "tutorial": None,
+        }
+    )
     return {"answer": result["answer"], "tutorial": result["tutorial"]}

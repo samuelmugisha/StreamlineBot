@@ -1,21 +1,23 @@
 """Pydantic request / response schemas for the FastAPI endpoints."""
 
 import uuid
+
 from pydantic import BaseModel, Field, field_validator
+
+
+def _require_uuid(v: str) -> str:
+    try:
+        uuid.UUID(v)
+    except ValueError as e:
+        raise ValueError("session_id must be a valid UUID v4 string") from e
+    return v
 
 
 class ChatRequest(BaseModel):
     session_id: str = Field(..., description="UUID identifying the user session")
     message: str = Field(..., min_length=1, max_length=2000, description="User message")
 
-    @field_validator("session_id")
-    @classmethod
-    def validate_session_id(cls, v: str) -> str:
-        try:
-            uuid.UUID(v)
-        except ValueError:
-            raise ValueError("session_id must be a valid UUID v4 string")
-        return v
+    _validate_session_id = field_validator("session_id")(_require_uuid)
 
 
 class TutorialRef(BaseModel):
@@ -44,14 +46,7 @@ class HistoryResponse(BaseModel):
 class EscalateRequest(BaseModel):
     session_id: str = Field(..., description="UUID identifying the user session")
 
-    @field_validator("session_id")
-    @classmethod
-    def validate_session_id(cls, v: str) -> str:
-        try:
-            uuid.UUID(v)
-        except ValueError:
-            raise ValueError("session_id must be a valid UUID v4 string")
-        return v
+    _validate_session_id = field_validator("session_id")(_require_uuid)
 
 
 class EscalateResponse(BaseModel):
@@ -66,14 +61,7 @@ class FeedbackRequest(BaseModel):
     rating: int = Field(..., ge=1, le=5, description="Star rating, 1 (not helpful) to 5 (very helpful)")
     comment: str | None = Field(None, max_length=1000, description="Optional follow-up comment")
 
-    @field_validator("session_id")
-    @classmethod
-    def validate_session_id(cls, v: str) -> str:
-        try:
-            uuid.UUID(v)
-        except ValueError:
-            raise ValueError("session_id must be a valid UUID v4 string")
-        return v
+    _validate_session_id = field_validator("session_id")(_require_uuid)
 
 
 class FeedbackResponse(BaseModel):

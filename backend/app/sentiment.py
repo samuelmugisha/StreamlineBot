@@ -5,6 +5,7 @@ decide when a conversation should be escalated (see escalation.py).
 """
 
 import re
+
 from pydantic import BaseModel, Field
 
 
@@ -62,9 +63,8 @@ def analyze_message(message: str, previous_answer: str = "") -> MessageAnalysis:
 
     # --- wants_human ---
     wants_human = bool(_HUMAN_RE.search(message))
-    if not wants_human and _AGREEMENT_RE.match(message):
-        if _ESCALATION_OFFER in (previous_answer or ""):
-            wants_human = True
+    if not wants_human and _AGREEMENT_RE.match(message) and _ESCALATION_OFFER in (previous_answer or ""):
+        wants_human = True
 
     # --- frustration (1–5) ---
     score = 1
@@ -79,9 +79,7 @@ def analyze_message(message: str, previous_answer: str = "") -> MessageAnalysis:
         score += 1
 
     exclamations = message.count("!")
-    if exclamations >= 3:
-        score += 1
-    elif exclamations >= 1 and neg_hits >= 1:
+    if exclamations >= 3 or exclamations >= 1 and neg_hits >= 1:
         score += 1
 
     return MessageAnalysis(frustration=min(score, 5), wants_human=wants_human)

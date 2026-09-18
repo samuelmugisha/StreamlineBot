@@ -17,20 +17,27 @@ Usage (one-time / manual re-run):
     python -m backend.ingestion.gdrive_ingest --embed-only # skip OCR, use checkpoint
 """
 
-import os, io, json, time, logging, base64, requests
+import base64
+import io
+import json
+import logging
+import os
+import re
+import time
 from pathlib import Path
 
-import re
 import fitz
+import requests
 from dotenv import load_dotenv
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
-from langchain_core.documents import Document
-from backend.app.gemini_embeddings import GeminiEmbeddings
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import SupabaseVectorStore
+from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from supabase import create_client
+
+from backend.app.gemini_embeddings import GeminiEmbeddings
 
 load_dotenv(Path(__file__).parents[2] / ".env.streamline")
 
@@ -38,14 +45,14 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(mes
 logger = logging.getLogger(__name__)
 
 GDRIVE_FOLDER_ID = "16FmmLzhDoUqWpHngTmNT217VmcClwqos"
-CHECKPOINT_FILE  = Path(__file__).parent / "gdrive_checkpoint.json"
-STATE_FILE       = Path(__file__).parent / "gdrive_sync_state.json"
-TUTORIAL_BUCKET  = "tutorials"
-SCOPES           = ["https://www.googleapis.com/auth/drive.readonly"]
-CHUNK_SIZE       = 1000
-CHUNK_OVERLAP    = 150
-DPI              = 150
-OCR_MODEL        = "gemini-2.0-flash"
+CHECKPOINT_FILE = Path(__file__).parent / "gdrive_checkpoint.json"
+STATE_FILE = Path(__file__).parent / "gdrive_sync_state.json"
+TUTORIAL_BUCKET = "tutorials"
+SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
+CHUNK_SIZE = 1000
+CHUNK_OVERLAP = 150
+DPI = 150
+OCR_MODEL = "gemini-2.0-flash"
 
 _BAD_OCR_PHRASES = (
     "i'm sorry, but i can't assist",
@@ -59,13 +66,13 @@ _BAD_OCR_PHRASES = (
     "if you provide the text content",
 )
 
-_CODE_FENCE = re.compile(r'^```[a-z]*\n?', re.MULTILINE)
+_CODE_FENCE = re.compile(r"^```[a-z]*\n?", re.MULTILINE)
 
 
 def _clean_ocr(text: str) -> str:
     """Strip markdown code fences that gpt-4o-mini sometimes wraps output in."""
-    text = _CODE_FENCE.sub('', text)
-    text = text.replace('```', '')
+    text = _CODE_FENCE.sub("", text)
+    text = text.replace("```", "")
     return text.strip()
 
 
@@ -79,10 +86,11 @@ def _is_garbage(text: str) -> bool:
 
 def _is_toc_page(text: str) -> bool:
     """Return True for Table of Contents pages — detected by the header text."""
-    return bool(re.search(r'table\s+of\s+contents', text, re.IGNORECASE))
+    return bool(re.search(r"table\s+of\s+contents", text, re.IGNORECASE))
 
 
 # ── Google Drive helpers ───────────────────────────────────────────────────────
+
 
 def _build_drive():
     creds_json = os.environ.get("GOOGLE_CREDENTIALS_JSON")
@@ -105,10 +113,15 @@ def _list_pdfs(drive, folder_id: str) -> list[dict]:
     # direct children only — prevents ingesting PDFs from unrelated Drive folders
     # the service account can see.
     folder_map: dict[str, str] = {folder_id: "General"}
-    folders_resp = drive.files().list(
-        q=f"mimeType='application/vnd.google-apps.folder' and trashed=false and '{folder_id}' in parents",
-        fields="files(id,name)", pageSize=200,
-    ).execute()
+    folders_resp = (
+        drive.files()
+        .list(
+            q=f"mimeType='application/vnd.google-apps.folder' and trashed=false and '{folder_id}' in parents",
+            fields="files(id,name)",
+            pageSize=200,
+        )
+        .execute()
+    )
     for f in folders_resp.get("files", []):
         folder_map[f["id"]] = f["name"]
 
@@ -129,10 +142,14 @@ def _list_pdfs(drive, folder_id: str) -> list[dict]:
             if parent_id not in folder_map:
                 continue  # PDF is outside the configured folder — skip
             folder_name = folder_map[parent_id]
-            results.append({
-                "file_id": f["id"], "file_name": f["name"],
-                "folder_name": folder_name, "modified_time": f["modifiedTime"],
-            })
+            results.append(
+                {
+                    "file_id": f["id"],
+                    "file_name": f["name"],
+                    "folder_name": folder_name,
+                    "modified_time": f["modifiedTime"],
+                }
+            )
         page_token = resp.get("nextPageToken")
         if not page_token:
             break
@@ -151,23 +168,35 @@ def _download_pdf(drive, file_id: str) -> bytes:
 
 # ── OCR ───────────────────────────────────────────────────────────────────────
 
+
 def _ocr_page(image_bytes: bytes) -> str:
     model = os.environ.get("STREAMLINE_OCR_MODEL", OCR_MODEL)
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     payload = {
-        "contents": [{
-            "parts": [
-                {"text": "Extract all text from this document page exactly as it appears. Preserve headings, bullet points, tables, and numbered lists. Do not summarise — output the raw text only."},
-                {"inline_data": {"mime_type": "image/png", "data": base64.b64encode(image_bytes).decode()}},
-            ]
-        }]
+        "contents": [
+            {
+                "parts": [
+                    {
+                        "text": "Extract all text from this document page exactly as it appears. Preserve headings, bullet points, tables, and numbered lists. Do not summarise — output the raw text only."
+                    },
+                    {
+                        "inline_data": {
+                            "mime_type": "image/png",
+                            "data": base64.b64encode(image_bytes).decode(),
+                        }
+                    },
+                ]
+            }
+        ]
     }
     headers = {"x-goog-api-key": os.environ["GOOGLE_AI_API_KEY"], "Content-Type": "application/json"}
     for attempt in range(12):
         resp = requests.post(url, json=payload, headers=headers, timeout=60)
         if resp.status_code in (429, 500, 503):
-            sleep_s = min(10 * (2 ** attempt), 120)
-            logger.warning("OCR HTTP %d — sleeping %ds (attempt %d/12)", resp.status_code, sleep_s, attempt + 1)
+            sleep_s = min(10 * (2**attempt), 120)
+            logger.warning(
+                "OCR HTTP %d — sleeping %ds (attempt %d/12)", resp.status_code, sleep_s, attempt + 1
+            )
             time.sleep(sleep_s)
             continue
         resp.raise_for_status()
@@ -181,21 +210,22 @@ def _ocr_page(image_bytes: bytes) -> str:
 
 # ── Per-file ingestion ─────────────────────────────────────────────────────────
 
+
 def _ingest_pdf(entry: dict, drive, supabase, bucket) -> list[Document]:
     """Download, OCR, screenshot-upload one PDF. Returns its Document pages."""
     folder = entry["folder_name"]
-    fname  = entry["file_name"]
+    fname = entry["file_name"]
     source = f"{folder}/{fname}"
     logger.info("  Ingesting: %s", source)
 
     pdf_bytes = _download_pdf(drive, entry["file_id"])
-    pdf_doc   = fitz.open(stream=pdf_bytes, filetype="pdf")
-    mat       = fitz.Matrix(DPI / 72, DPI / 72)
+    pdf_doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    mat = fitz.Matrix(DPI / 72, DPI / 72)
     docs: list[Document] = []
 
     for page_num in range(len(pdf_doc)):
-        page      = pdf_doc[page_num]
-        pix       = page.get_pixmap(matrix=mat, colorspace=fitz.csRGB)
+        page = pdf_doc[page_num]
+        pix = page.get_pixmap(matrix=mat, colorspace=fitz.csRGB)
         png_bytes = pix.tobytes("png")
 
         # Use the single embedded image if there is exactly one and it is large
@@ -211,19 +241,23 @@ def _ingest_pdf(entry: dict, drive, supabase, bucket) -> list[Document]:
                 pass
 
         # Upload screenshot
-        stem         = source.rsplit(".", 1)[0]
+        stem = source.rsplit(".", 1)[0]
         storage_path = f"{stem}/page-{page_num + 1}.png"
         try:
-            bucket.upload(storage_path, screenshot_bytes, file_options={"content-type": "image/png", "upsert": "true"})
+            bucket.upload(
+                storage_path, screenshot_bytes, file_options={"content-type": "image/png", "upsert": "true"}
+            )
         except Exception as e:
             logger.warning("    Screenshot upload failed %s: %s", storage_path, e)
 
         text = _clean_ocr(_ocr_page(png_bytes))
         if text.strip() and not _is_garbage(text) and not _is_toc_page(text):
-            docs.append(Document(
-                page_content=text,
-                metadata={"source": source, "module": folder, "page": page_num + 1},
-            ))
+            docs.append(
+                Document(
+                    page_content=text,
+                    metadata={"source": source, "module": folder, "page": page_num + 1},
+                )
+            )
         elif text.strip():
             logger.debug("    Skipped page %d (blank/bad OCR/TOC)", page_num + 1)
         time.sleep(5)
@@ -258,17 +292,26 @@ def _test_retrieval(supabase, embeddings, source: str) -> None:
         return
 
     query_text = _source_to_query(source)
-    embedding  = embeddings.embed_query(query_text)
-    rows = (supabase.rpc("match_documents", {
-        "query_embedding": embedding,
-        "match_count": 5,
-        "match_threshold": 0.0,
-    }).execute()).data or []
+    embedding = embeddings.embed_query(query_text)
+    rows = (
+        supabase.rpc(
+            "match_documents",
+            {
+                "query_embedding": embedding,
+                "match_count": 5,
+                "match_threshold": 0.0,
+            },
+        ).execute()
+    ).data or []
 
     logger.info("  [TEST] %d chunks embedded | query: '%s'", chunk_count, query_text)
     for row in rows[:3]:
-        logger.info("    sim=%.3f | %s | page %s",
-                    row["similarity"], row["metadata"].get("source", "?"), row["metadata"].get("page", "?"))
+        logger.info(
+            "    sim=%.3f | %s | page %s",
+            row["similarity"],
+            row["metadata"].get("source", "?"),
+            row["metadata"].get("page", "?"),
+        )
 
     if rows and rows[0]["metadata"].get("source") == source:
         logger.info("  [TEST] PASS — top result is from this PDF (sim=%.3f)", rows[0]["similarity"])
@@ -277,28 +320,35 @@ def _test_retrieval(supabase, embeddings, source: str) -> None:
         if same:
             logger.warning("  [TEST] WARN — this PDF not #1; found at position %d", rows.index(same[0]) + 1)
         else:
-            logger.warning("  [TEST] WARN — this PDF not in top 5 results; top is %s",
-                           rows[0]["metadata"].get("source"))
+            logger.warning(
+                "  [TEST] WARN — this PDF not in top 5 results; top is %s", rows[0]["metadata"].get("source")
+            )
     else:
         logger.warning("  [TEST] WARN — no results at threshold=0.0 (very unusual)")
 
 
 def _embed_and_upsert(docs: list[Document], supabase, embeddings) -> None:
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP,
+        chunk_size=CHUNK_SIZE,
+        chunk_overlap=CHUNK_OVERLAP,
         separators=["\n\n", "\n", ". ", " ", ""],
     )
     chunks = splitter.split_documents(docs)
     if not chunks:
         return
     SupabaseVectorStore.from_documents(
-        documents=chunks, embedding=embeddings, client=supabase,
-        table_name="documents", query_name="match_documents", chunk_size=50,
+        documents=chunks,
+        embedding=embeddings,
+        client=supabase,
+        table_name="documents",
+        query_name="match_documents",
+        chunk_size=50,
     )
     logger.info("  Upserted %d chunks", len(chunks))
 
 
 # ── State file ─────────────────────────────────────────────────────────────────
+
 
 def _load_state() -> dict:
     if STATE_FILE.exists():
@@ -312,6 +362,7 @@ def _save_state(state: dict) -> None:
 
 # ── Public API ─────────────────────────────────────────────────────────────────
 
+
 def sync_gdrive() -> None:
     """
     Called by the background sync loop. Compares Drive file modifiedTimes against
@@ -322,13 +373,13 @@ def sync_gdrive() -> None:
         logger.warning("GDRIVE_FOLDER_ID not set — skipping Drive sync.")
         return
 
-    supabase   = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
+    supabase = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
     embeddings = GeminiEmbeddings(model="gemini-embedding-001", api_key=os.environ["GOOGLE_AI_API_KEY"])
-    drive      = _build_drive()
-    bucket     = supabase.storage.from_(TUTORIAL_BUCKET)
+    drive = _build_drive()
+    bucket = supabase.storage.from_(TUTORIAL_BUCKET)
 
-    current_files  = {e["file_id"]: e for e in _list_pdfs(drive, folder_id)}
-    state          = _load_state()
+    current_files = {e["file_id"]: e for e in _list_pdfs(drive, folder_id)}
+    state = _load_state()
     previous_files = state.get("files", {})
 
     # State file is wiped on every container restart — rebuild from Supabase
@@ -354,13 +405,11 @@ def sync_gdrive() -> None:
             logger.info("Rebuilt sync state from Supabase for %d PDFs.", len(previous_files))
 
     changed = [
-        entry for fid, entry in current_files.items()
+        entry
+        for fid, entry in current_files.items()
         if previous_files.get(fid, {}).get("modified_time") != entry["modified_time"]
     ]
-    removed = [
-        prev for fid, prev in previous_files.items()
-        if fid not in current_files
-    ]
+    removed = [prev for fid, prev in previous_files.items() if fid not in current_files]
 
     if not changed and not removed:
         logger.info("Google Drive unchanged — no sync needed.")
@@ -381,7 +430,11 @@ def sync_gdrive() -> None:
 
     # Update state
     state["files"] = {
-        fid: {"file_name": e["file_name"], "folder_name": e["folder_name"], "modified_time": e["modified_time"]}
+        fid: {
+            "file_name": e["file_name"],
+            "folder_name": e["folder_name"],
+            "modified_time": e["modified_time"],
+        }
         for fid, e in current_files.items()
     }
     _save_state(state)
@@ -390,7 +443,7 @@ def sync_gdrive() -> None:
 
 def run(embed_only: bool = False) -> None:
     """Full first-time ingestion run."""
-    supabase   = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
+    supabase = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
     embeddings = GeminiEmbeddings(model="gemini-embedding-001", api_key=os.environ["GOOGLE_AI_API_KEY"])
 
     # Ensure tutorials bucket is public
@@ -411,7 +464,7 @@ def run(embed_only: bool = False) -> None:
         logger.info("Loaded %d pages from checkpoint.", len(all_docs))
         _embed_and_upsert(all_docs, supabase, embeddings)
     else:
-        drive    = _build_drive()
+        drive = _build_drive()
         pdf_list = _list_pdfs(drive, GDRIVE_FOLDER_ID)
         logger.info("Found %d PDFs across all folders", len(pdf_list))
 
@@ -441,15 +494,25 @@ def run(embed_only: bool = False) -> None:
                 logger.warning("  FAILED to ingest %s: %s", source, e)
 
         CHECKPOINT_FILE.write_text(
-            json.dumps([{"page_content": d.page_content, "metadata": d.metadata} for d in all_docs], ensure_ascii=False, indent=2),
+            json.dumps(
+                [{"page_content": d.page_content, "metadata": d.metadata} for d in all_docs],
+                ensure_ascii=False,
+                indent=2,
+            ),
             encoding="utf-8",
         )
         logger.info("Checkpoint saved: %d pages total", len(all_docs))
 
-        state = {"files": {
-            e["file_id"]: {"file_name": e["file_name"], "folder_name": e["folder_name"], "modified_time": e["modified_time"]}
-            for e in pdf_list
-        }}
+        state = {
+            "files": {
+                e["file_id"]: {
+                    "file_name": e["file_name"],
+                    "folder_name": e["folder_name"],
+                    "modified_time": e["modified_time"],
+                }
+                for e in pdf_list
+            }
+        }
         _save_state(state)
 
     logger.info("Done.")
@@ -457,6 +520,7 @@ def run(embed_only: bool = False) -> None:
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--embed-only", action="store_true", help="Skip OCR, use saved checkpoint")
     args = parser.parse_args()

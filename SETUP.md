@@ -8,15 +8,17 @@ An AI-powered RAG chatbot embedded as a floating widget on the AdminIE Grant Man
 
 | Layer | Technology |
 |---|---|
-| LLM | OpenAI `gpt-4o-mini` |
-| Embeddings | OpenAI `text-embedding-3-small` |
+| LLM | Google Gemini (`gemini-2.0-flash` by default, see `GEMINI_MODEL`) |
+| Embeddings | Google `gemini-embedding-001` |
 | Vector Store | Supabase pgvector |
 | Orchestration | LangGraph |
 | Memory | Supabase `chat_history` table (per session) |
 | Backend | FastAPI (Python 3.12) |
 | Frontend | React + Vite + Tailwind CSS |
-| Monitoring | LangSmith |
-| Deployment | Docker + DigitalOcean |
+| Monitoring | LangSmith (tracing) + optional Sentry (errors) |
+| Testing | pytest (backend), Vitest + React Testing Library (frontend) |
+| CI/CD | GitHub Actions |
+| Deployment | Docker + DigitalOcean App Platform |
 
 ---
 
@@ -117,6 +119,28 @@ cp .env.example .env    # set VITE_API_URL and VITE_API_KEY
 npm install
 npm run dev             # http://localhost:5173
 ```
+
+---
+
+## Testing & Code Quality
+
+```bash
+# Backend — from the repo root
+pip install -r requirements-dev.txt
+ruff check backend Tests      # lint
+ruff format --check backend Tests   # format check
+pytest                        # tests + coverage report
+
+# Frontend — from frontend/
+npm run lint
+npm run format:check
+npm run test
+```
+
+CI runs all of the above automatically on every push/PR — see
+`.github/workflows/ci.yml`. See [CONTRIBUTING.md](CONTRIBUTING.md) for the
+full workflow and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how the
+pieces fit together.
 
 ---
 
@@ -382,8 +406,8 @@ See `.env.example` for the full list. Key variables:
 | `RATE_LIMIT` | Max requests per IP per minute on `/escalate` and `/feedback` (default: `20/minute`) |
 | `CHAT_RATE_LIMIT` | Max requests per IP per minute on `/chat` (default: `8/minute`) |
 | `SESSION_CHAT_LIMIT` | Max `/chat` requests per conversation per 60s, independent of IP (default: `10`) |
-| `OPENAI_API_KEY` | OpenAI API key |
-| `OPENAI_MODEL` | Model name (default: `gpt-4o-mini`) |
+| `GOOGLE_AI_API_KEY` | Google AI (Gemini) API key |
+| `GEMINI_MODEL` | Chat model name (default: `gemini-2.0-flash`) |
 | `SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server-side only) |
 | `LANGSMITH_API_KEY` | LangSmith API key for monitoring |
@@ -394,6 +418,7 @@ See `.env.example` for the full list. Key variables:
 | `SENTIMENT_ESCALATION_THRESHOLD` | Frustration score (1-5) that auto-escalates (default: `4`) |
 | `NO_ANSWER_STREAK_THRESHOLD` | Consecutive unanswered replies before auto-escalating (default: `2`) |
 | `LOW_RATING_ESCALATION_THRESHOLD` | "Was this helpful?" star rating (1-5) at or below which auto-escalates (default: `3`) |
+| `SENTRY_DSN` / `VITE_SENTRY_DSN` | Optional error tracking (leave blank to disable) |
 
 ---
 

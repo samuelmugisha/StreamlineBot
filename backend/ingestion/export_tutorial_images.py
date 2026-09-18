@@ -60,7 +60,8 @@ def export_images() -> None:
             png_bytes = pix.tobytes("png")
             path = tutorial_storage_path(source, page_num + 1)
             bucket.upload(
-                path, png_bytes,
+                path,
+                png_bytes,
                 file_options={"content-type": "image/png", "upsert": "true"},
             )
         pdf_doc.close()
