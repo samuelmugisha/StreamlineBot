@@ -19,7 +19,7 @@ uvicorn[standard]==0.34.2
 python-multipart==0.0.22
 pydantic==2.11.4
 pydantic-settings==2.9.1
-slowapi==0.1.9
+slowapi==0.1.10
 
 # ─── Document Processing ──────────────────────────────────────────────────────
 pymupdf==1.25.5
