@@ -6,7 +6,7 @@ langgraph==0.4.8
 langsmith==0.3.45
 
 # google-generativeai: old SDK still used for OCR in ingest.py.
-google-generativeai>=0.7.2,<1.0
+google-generativeai>=0.8.6,<1.0
 
 # ─── Supabase / Database ──────────────────────────────────────────────────────
 supabase==2.15.2
