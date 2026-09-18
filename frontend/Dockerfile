@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:25-alpine AS builder
 
 ARG VITE_API_URL=http://localhost:8000
 ARG VITE_API_KEY=""
