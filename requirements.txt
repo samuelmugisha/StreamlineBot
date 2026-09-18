@@ -15,7 +15,7 @@ supabase==2.15.2
 # fastapi pinned >=0.116.2 to pull in a starlette release patched against
 # known CVEs (see SECURITY.md / pip-audit in CI).
 fastapi==0.116.2
-uvicorn[standard]==0.34.2
+uvicorn[standard]==0.53.0
 python-multipart==0.0.22
 pydantic==2.11.4
 pydantic-settings==2.9.1
