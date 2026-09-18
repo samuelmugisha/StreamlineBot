@@ -9,7 +9,7 @@ langsmith==0.3.45
 google-generativeai>=0.7.2,<1.0
 
 # ─── Supabase / Database ──────────────────────────────────────────────────────
-supabase==2.15.2
+supabase==2.31.0
 
 # ─── FastAPI / Server ─────────────────────────────────────────────────────────
 # fastapi pinned >=0.116.2 to pull in a starlette release patched against
